@@ -28,7 +28,7 @@ For example:
 
     - **local:** Store backups on a local directory. Optionally, they can be transferred via SSH to a remote host if `REMOTE_HOST` is defined.
     - **s3:** Upload backups to an AWS S3 bucket.
-    - **gcp:** Upload backups to a Google Cloud Storage bucket.
+    - **gcp:** Upload backups to a Google Cloud Storage bucket using `gcloud storage`.
 
 - **Retention Policy:**  
   Backups older than the specified number of days (`RETENTION_DAYS`) are automatically deleted.
@@ -45,8 +45,12 @@ For example:
    - `-l`: Local backup path.
    - `-b`: Cloud bucket path (for s3 or gcp modes).
    - `-k`: Encryption key for GPG (AES256).
-   - `-T`: Retention days.
-   - `-h`: Remote host for SSH transfers.
+    - `-T`: Retention days.
+    - `-h`: Remote host for SSH transfers.
+    - `-n`: Dry run; log operations without creating, uploading, or deleting backups.
+
+   GCP mode requires the Google Cloud CLI and an authenticated `gcloud` configuration
+   for the user that runs the script (including the cron user).
 
 **Example Command:**
 
@@ -78,7 +82,7 @@ Por ejemplo:
 
     - **local:** Guarda el backup en un directorio local. Opcionalmente, puede transferirse vía SSH a un host remoto si se define `REMOTE_HOST`.
     - **s3:** Sube el backup a un bucket de AWS S3.
-    - **gcp:** Sube el backup a un bucket de Google Cloud Storage.
+     - **gcp:** Sube el backup a un bucket de Google Cloud Storage usando `gcloud storage`.
 
 - **Política de Retención:**  
   Se eliminan automáticamente los backups que sean más antiguos que la cantidad de días especificada (`RETENTION_DAYS`).
@@ -95,8 +99,12 @@ Por ejemplo:
    - `-l`: Ruta local para el backup.
    - `-b`: Ruta del bucket en la nube (para s3 o gcp).
    - `-k`: Clave de encriptación para GPG (AES256).
-   - `-T`: Días de retención.
-   - `-h`: Host remoto para transferencias vía SSH.
+    - `-T`: Días de retención.
+    - `-h`: Host remoto para transferencias vía SSH.
+    - `-n`: Dry run; registra las operaciones sin crear, subir ni borrar backups.
+
+   El modo GCP requiere Google Cloud CLI y una configuración `gcloud` autenticada
+   para el usuario que ejecuta el script (incluido el usuario del cron).
 
 **Ejemplo de Comando:**
 

@@ -18,16 +18,17 @@ if [ "${#PROJECTS[@]}" -eq 0 ]; then
 fi
 
 # Default log file location
-LOG_FILE="/var/log/backups-files.log"
+LOG_FILE="/var/log/backups.log"
 
 # Format backup date
 BACKUP_DATE=$(date +%Y%m%d-%H%M)
 
 # Counter for errors
 ERROR_COUNT=0
+DRY_RUN=false
 
 # Process command line options (these may override configuration values)
-while getopts "m:l:b:k:T:h:" opt; do
+while getopts "m:l:b:k:T:h:n" opt; do
     case $opt in
         m) MODE=$OPTARG ;;
         l) LOCAL_PATH=$OPTARG ;;
@@ -35,6 +36,7 @@ while getopts "m:l:b:k:T:h:" opt; do
         k) ENCRYPTION_KEY=$OPTARG ;;
         T) RETENTION_DAYS=$OPTARG ;;
         h) REMOTE_HOST=$OPTARG ;;
+        n) DRY_RUN=true ;;
         *)
 cat << 'EOF'
 Usage: $0 [options]
@@ -57,6 +59,8 @@ Options:
   
   -h  Remote host for transferring backups (format: user@host).
 
+  -n  Dry run: log operations without creating, uploading, or deleting backups.
+
 Examples:
   $0 -m local -l /backups/files -T 7
   $0 -m gcp -b gs://my-bucket/path -k mysecret
@@ -68,6 +72,11 @@ exit 1
     esac
 done
 shift $((OPTIND - 1))
+
+if [ "$MODE" == "gcp" ] && ! command -v gcloud >/dev/null 2>&1; then
+    echo "gcloud command not found. Install the Google Cloud CLI before using GCP mode."
+    exit 1
+fi
 
 # Function for logging with timestamp
 log_check_message() {
@@ -95,6 +104,11 @@ backup_item() {
     local file_name="${project}-${BACKUP_DATE}${ext}"
 
     log_check_message "[info] Starting backup of ${item} (project: ${project})"
+
+    if [ "$DRY_RUN" == "true" ]; then
+        log_check_message "[dry-run] Would create and upload ${file_name} using mode ${MODE}"
+        return 0
+    fi
 
     if [ "$MODE" == "local" ]; then
         if [ -n "$REMOTE_HOST" ]; then
@@ -155,14 +169,14 @@ backup_item() {
             log_check_message "[info] S3 backup of ${item} completed: ${remote_file}"
         fi
     elif [ "$MODE" == "gcp" ]; then
-        # Backup to GCP using gsutil
+        # Backup to GCP using gcloud storage
         local remote_file="${project}/${file_name}"
         if [ -n "$ENCRYPTION_KEY" ]; then
             tar czf - "$item" 2>/dev/null | \
             gpg --batch --yes --symmetric --cipher-algo AES256 --passphrase "$ENCRYPTION_KEY" | \
-            gsutil cp - "${CLOUD_BUCKET}/${remote_file}"
+            gcloud storage cp - "${CLOUD_BUCKET}/${remote_file}"
         else
-            tar czf - "$item" 2>/dev/null | gsutil cp - "${CLOUD_BUCKET}/${remote_file}"
+            tar czf - "$item" 2>/dev/null | gcloud storage cp - "${CLOUD_BUCKET}/${remote_file}"
         fi
         if [ $? -ne 0 ]; then
             log_check_message "[error] Error with GCP backup for ${item}"
@@ -178,6 +192,11 @@ backup_item() {
 
 # Function to apply the retention policy on local backups (or remote backups via SSH)
 apply_retention_policy() {
+    if [ "$DRY_RUN" == "true" ]; then
+        log_check_message "[dry-run] Would apply retention policy for mode ${MODE} (${RETENTION_DAYS} days)."
+        return 0
+    fi
+
     log_check_message "[info] Applying retention policy: deleting backups older than ${RETENTION_DAYS} days."
     if [ "$MODE" == "local" ]; then
         if [ -n "$REMOTE_HOST" ]; then
